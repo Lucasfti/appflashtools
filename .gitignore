@@ -1,0 +1,7 @@
+build/
+dist/
+Flash Tool.spec
+__pycache__/
+*.pyc
+db_config.json
+.venv/
