@@ -65,14 +65,18 @@ class OracleSeniorApp(ctk.CTk):
         # Host padrão
         self.ent_host = self.criar_campo(frame, "Host / IP:")
         self.ent_host.insert(0, "exa12-scan1.eb.mil.br")
+        self.ent_host.configure(state="readonly")
         
         # Porta padrão
         self.ent_port = self.criar_campo(frame, "Porta:")
         self.ent_port.insert(0, "1521")
+        self.ent_port.configure(state="readonly")
+
         
         # Serviço padrão
         self.ent_service = self.criar_campo(frame, "Service Name / SID:")
         self.ent_service.insert(0, "SIPPES_HOMOL")
+        self.ent_service.configure(state="readonly")
         
         ctk.CTkLabel(frame, text="Arquivo de Snippets (XML):", font=("Arial", 12)).pack(pady=(20, 0))
         f_xml = ctk.CTkFrame(frame, fg_color="transparent")
@@ -303,13 +307,12 @@ class OracleSeniorApp(ctk.CTk):
             messagebox.showwarning("Aviso", "Preencha FOLHA_PGTO_CODIGO, TIPO_SIT_LANC_CODIGO, TIPO_STATUS_ALT_CODIGO e MOTIVO_CPEX.")
             return
             
-    
         query = f"""
         SELECT 
         '-- ATUALIZANDO A TABELA SIPPES.LANCAMENTO_ALT'||CHR(13)||
         '-- CAMPO TIPO_STATUS_ALT_CODIGO DE '||L.TIPO_STATUS_ALT_CODIGO||' PARA {status_alt}'||CHR(13)||
         '-- CAMPO TIPO_SIT_LANC_CODIGO DE '||L.TIPO_SIT_LANC_CODIGO||' PARA {sit_lanc}'||CHR(13)||
-        '-- CAMPO MOTIVO_CPEX DE '||L.MOTIVO_CPEX||' PARA ABAIXO'||CHR(13)||
+        '-- CAMPO MOTIVO_CPEX DE '||NVL(L.MOTIVO_CPEX, 'NULO')||' PARA {motivo_cpex}'||CHR(13)||
         'UPDATE SIPPES.LANCAMENTO_ALT SET TIPO_STATUS_ALT_CODIGO = {status_alt}, TIPO_SIT_LANC_CODIGO = {sit_lanc}, MOTIVO = '||CHR(39)||'O motivo da exclusão está disponível no relatório Lançamentos Excluídos pelo CPEx na ferramenta SINFOPPES (http://sippes.cpex.eb.mil.br/)'||CHR(39)||', MOTIVO_CPEX = '||CHR(39)||'{motivo_cpex}'||CHR(39)||' WHERE FOLHA_PGTO_CODIGO = {folha} AND CODIGO = '||CODIGO||';'||CHR(13) AS CMDO 
         FROM SIPPES.LANCAMENTO_ALT L
         WHERE CODIGO IN (SELECT CODIGO FROM CDS_FLASHTOOLS_APP.CODIGO_SIPPES)
