@@ -384,10 +384,14 @@ class OracleSeniorApp(ctk.CTk):
 
         f_busca_snip = ctk.CTkFrame(self.tab_snippets, fg_color="transparent")
         f_busca_snip.grid(row=0, column=0, sticky="nsew", padx=5, pady=(5, 0))
+        
         self.ent_busca_snip = ctk.CTkEntry(f_busca_snip, placeholder_text="🔍 Buscar snippet...")
-        self.ent_busca_snip.pack(fill="x")
+        self.ent_busca_snip.pack(side="left", fill="x", expand=True, padx=(0, 5))
         self.ent_busca_snip.bind("<KeyRelease>", self.filtrar_snippets)
 
+        
+        ctk.CTkButton(f_busca_snip, text="➕ Adicionar XML", width=110, fg_color="#2b5e91", command=self.selecionar_xml_extra).pack(side="right")
+       
         self.scroll_snippets = ctk.CTkScrollableFrame(self.tab_snippets, label_text="Snippets Disponíveis")
         self.scroll_snippets.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
@@ -397,6 +401,15 @@ class OracleSeniorApp(ctk.CTk):
         self.txt_edit_snippet = ctk.CTkTextbox(f_edit)
         self.txt_edit_snippet.pack(fill="both", expand=True, padx=5)
         ctk.CTkButton(f_edit, text="Injetar no SQL Original", fg_color="#d35400", command=self.injetar_snippet).pack(pady=10)
+
+    def selecionar_xml_extra(self):
+        path = filedialog.askopenfilename(filetypes=[("XML Files", "*.xml")])
+        if path:
+            qtd_adicionados = self.carregar_snippets_xml(path)
+            if qtd_adicionados > 0:
+                messagebox.showinfo("Sucesso", f"{qtd_adicionados} novos snippets foram agregados à sua biblioteca!")
+            else:
+                messagebox.showinfo("Aviso", "Nenhum snippet novo foi adicionado. Talvez eles já existam com o mesmo nome.")
 
     def filtrar_snippets(self, event=None):
         termo = self.ent_busca_snip.get().lower()
@@ -414,29 +427,34 @@ class OracleSeniorApp(ctk.CTk):
             self.carregar_snippets_xml(path)
 
     def carregar_snippets_xml(self, path):
-        if not os.path.exists(path): return
+        if not os.path.exists(path): return 0
         try:
-            for w in self.scroll_snippets.winfo_children(): w.destroy()
-            self.snippets_data = {}
-            self.widgets_snippets = []
-            
             tree = ET.parse(path)
             root = tree.getroot()
             
+            adicionados = 0
             for snip in root.iter('snippet'):
                 nome = snip.get('name') or "Sem Nome"
                 code_elem = snip.find('code')
                 if code_elem is None: code_elem = snip.find('codeSnippet')
                 
                 codigo = code_elem.text if code_elem is not None else ""
+                
                 if codigo:
-                    self.snippets_data[nome] = codigo.strip()
-                    btn = ctk.CTkButton(self.scroll_snippets, text=nome, anchor="w", fg_color="transparent", 
-                                        text_color="white", hover_color="#3d3d3d",
-                                        command=lambda n=nome: self.visualizar_snippet(n))
-                    btn.pack(fill="x", pady=1)
-                    self.widgets_snippets.append((btn, nome))
-        except Exception as e: messagebox.showerror("Erro XML", f"Falha ao ler snippets: {e}")
+                    if nome not in self.snippets_data:
+                        self.snippets_data[nome] = codigo.strip()
+                        btn = ctk.CTkButton(self.scroll_snippets, text=nome, anchor="w", fg_color="transparent", 
+                                            text_color="white", hover_color="#3d3d3d",
+                                            command=lambda n=nome: self.visualizar_snippet(n))
+                        btn.pack(fill="x", pady=1)
+                        self.widgets_snippets.append((btn, nome))
+                        adicionados += 1
+                        
+            return adicionados 
+            
+        except Exception as e: 
+            messagebox.showerror("Erro XML", f"Falha ao ler snippets:\n{e}")
+            return 0
 
     def visualizar_snippet(self, nome):
         self.txt_edit_snippet.delete("1.0", "end")
@@ -506,6 +524,17 @@ class OracleSeniorApp(ctk.CTk):
                     self.ent_xml_path.delete(0, 'end')
                     self.ent_xml_path.insert(0, path_xml)
                     self.carregar_snippets_xml(path_xml)
+        diretorio_atual = os.path.dirname(os.path.abspath(__file__))
+        
+        arquivo_nativo_xml = os.path.join(diretorio_atual, "usersnippets.xml")
+
+        if os.path.exists(arquivo_nativo_xml):
+            qtd = self.carregar_snippets_xml(arquivo_nativo_xml)
+            print(f"DEBUG: {qtd} snippets nativos carregados com sucesso!")
+        else:
+            print(f"DEBUG: Arquivo nativo não encontrado em:\n{arquivo_nativo_xml}")
+
+        
 
     def tratar_query_data(self, query):
         padrao_data = r"=\s*'(\d{2}/\d{2}/\d{4})'"
