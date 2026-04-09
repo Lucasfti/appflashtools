@@ -1,1 +1,0 @@
-pyinstaller --noconsole --onedir --clean --collect-all customtkinter --collect-all cryptography --collect-all tkinter -n "Flash Tool" meu_gerador.py

@@ -1,0 +1,7 @@
+customtkinter
+pandas
+oracledb
+pyperclip
+openpyxl
+pyinstaller
+xlrd

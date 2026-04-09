@@ -16,10 +16,10 @@ ctk.set_default_color_theme("blue")
 class OracleSeniorApp(ctk.CTk):
     def __init__(self):  
         super().__init__()
-        self.title("Flash Tool - v1.9.2")
+        self.title("Flash Tool - v1.9.3") 
         self.geometry("1300x900")
         
-        # --- SOLUÇÃO PARA TELA BRANCA NO WINDOWS ---
+       
         self.withdraw()
         self.after(10, self.deiconify)
         self.after(100, self.lift)
@@ -40,10 +40,12 @@ class OracleSeniorApp(ctk.CTk):
         
         self.tab_conn = self.tabview.add("Conexão")
         self.tab_main = self.tabview.add("Gerador de Update")
+        self.tab_critica = self.tabview.add("Crítica SIPPES") # NOVA ABA
         self.tab_snippets = self.tabview.add("Snippets / Biblioteca")
 
         self.setup_aba_conexao()
         self.setup_aba_main()
+        self.setup_aba_critica() 
         self.setup_aba_snippets()
 
     def setup_aba_conexao(self):
@@ -51,11 +53,26 @@ class OracleSeniorApp(ctk.CTk):
         frame.pack(pady=20, padx=40, fill="both", expand=True)
         ctk.CTkLabel(frame, text="Configurações de Acesso Oracle", font=("Arial", 18, "bold")).pack(pady=10)
         
+        # Usuário travado
         self.ent_user = self.criar_campo(frame, "Usuário:")
+        self.ent_user.insert(0, "CDS_FLASHTOOLS_APP") 
+        self.ent_user.configure(state="readonly") 
+
+        # Senha em foco
         self.ent_pass = self.criar_campo(frame, "Senha:", show="*")
+        self.ent_pass.focus() 
+        
+        # Host padrão
         self.ent_host = self.criar_campo(frame, "Host / IP:")
-        self.ent_port = self.criar_campo(frame, "Porta:", placeholder_text="1521")
+        self.ent_host.insert(0, "exa12-scan1.eb.mil.br")
+        
+        # Porta padrão
+        self.ent_port = self.criar_campo(frame, "Porta:")
+        self.ent_port.insert(0, "1521")
+        
+        # Serviço padrão
         self.ent_service = self.criar_campo(frame, "Service Name / SID:")
+        self.ent_service.insert(0, "SIPPES_HOMOL")
         
         ctk.CTkLabel(frame, text="Arquivo de Snippets (XML):", font=("Arial", 12)).pack(pady=(20, 0))
         f_xml = ctk.CTkFrame(frame, fg_color="transparent")
@@ -69,6 +86,267 @@ class OracleSeniorApp(ctk.CTk):
         ctk.CTkButton(btn_row, text="Testar Conexão", command=self.testar_conexao, fg_color="#2b5e91").pack(side="left", padx=10)
         ctk.CTkButton(btn_row, text="Salvar Configurações", command=self.salvar_config, fg_color="#28a745").pack(side="left", padx=10)
 
+    # NOVA FUNCIONALIDADE: CRÍTICA SIPPES -- CHAMAAAAA!!!
+    def setup_aba_critica(self):
+        self.tab_critica.grid_columnconfigure(0, weight=1)
+        self.tab_critica.grid_columnconfigure(1, weight=2)
+        self.tab_critica.grid_rowconfigure(0, weight=1)
+
+        # Frame da Esquerda (Parâmetros e Importação)
+        f_params = ctk.CTkFrame(self.tab_critica)
+        f_params.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        
+        ctk.CTkLabel(f_params, text="1. Importar Planilha", font=("Arial", 13, "bold")).pack(pady=(10,5))
+        
+        f_planilha = ctk.CTkFrame(f_params, fg_color="transparent")
+        f_planilha.pack(fill="x", padx=10, pady=5)
+        self.ent_excel_path = ctk.CTkEntry(f_planilha, placeholder_text="Caminho do Excel...")
+        self.ent_excel_path.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        ctk.CTkButton(f_planilha, text="Procurar", width=80, command=self.selecionar_excel_critica).pack(side="right")
+        
+        ctk.CTkButton(f_params, text="Carregar Tabela CODIGO_SIPPES", fg_color="#d35400", command=self.importar_codigos_sippes).pack(pady=10, fill="x", padx=10)
+        
+        ctk.CTkLabel(f_params, text="2. Parâmetros dos Scripts", font=("Arial", 13, "bold")).pack(pady=(20,5))
+        
+        self.ent_folha_pgto = self.criar_campo_simples(f_params, "FOLHA_PGTO_CODIGO:")
+        self.ent_sit_lanc = self.criar_campo_simples(f_params, "TIPO_SIT_LANC_CODIGO:")
+        self.ent_status_alt = self.criar_campo_simples(f_params, "TIPO_STATUS_ALT_CODIGO:")
+        self.ent_motivo_cpex = self.criar_campo_simples(f_params, "MOTIVO_CPEX:")
+        
+        ctk.CTkLabel(f_params, text="3. Gerar Comandos", font=("Arial", 13, "bold")).pack(pady=(20,5))
+        ctk.CTkButton(f_params, text="Gerar LANCAMENTO (3.1)", command=self.gerar_script_lancamento).pack(pady=5, fill="x", padx=10)
+        ctk.CTkButton(f_params, text="Gerar LANCAMENTO_ALT (3.2)", command=self.gerar_script_lancamento_alt).pack(pady=5, fill="x", padx=10)
+
+        # Frame da Direita (Resultados)
+        f_result = ctk.CTkFrame(self.tab_critica)
+        f_result.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+        
+        ctk.CTkLabel(f_result, text="Scripts Gerados", font=("Arial", 13, "bold")).pack(pady=5)
+        self.txt_out_critica = ctk.CTkTextbox(f_result)
+        self.txt_out_critica.pack(fill="both", expand=True, padx=5, pady=5)
+        ctk.CTkButton(f_result, text="Copiar Scripts", fg_color="#28a745", command=lambda: self.copiar_texto(self.txt_out_critica)).pack(pady=10)
+
+    def criar_campo_simples(self, master, texto):
+        f = ctk.CTkFrame(master, fg_color="transparent")
+        f.pack(fill="x", padx=10, pady=2)
+        ctk.CTkLabel(f, text=texto, width=170, anchor="w").pack(side="left")
+        ent = ctk.CTkEntry(f)
+        ent.pack(side="right", fill="x", expand=True)
+        return ent
+
+    def selecionar_excel_critica(self):
+        path = filedialog.askopenfilename(filetypes=[("Excel/CSV Files", "*.xlsx *.xls *.csv")])
+        if path:
+            self.ent_excel_path.delete(0, 'end')
+            self.ent_excel_path.insert(0, path)
+
+    def obter_conexao(self):
+        dsn = f"{self.ent_host.get()}:{self.ent_port.get()}/{self.ent_service.get()}"
+        return oracledb.connect(user=self.ent_user.get(), password=self.ent_pass.get(), dsn=dsn)
+
+    def importar_codigos_sippes(self):
+        path = self.ent_excel_path.get()
+        if not path or not os.path.exists(path):
+            messagebox.showerror("Erro", "Selecione um arquivo de planilha válido.")
+            return
+            
+        try:
+            # Lê o arquivo
+            if path.endswith('.csv'): df = pd.read_csv(path)
+            else: df = pd.read_excel(path)
+            
+            # Tenta achar a coluna CODIGO ignorando maiúsculas/minúsculas
+            coluna_codigo = None
+            for col in df.columns:
+                if str(col).upper().strip() == 'CODIGO':
+                    coluna_codigo = col
+                    break
+            
+            if not coluna_codigo:
+                coluna_codigo = df.columns[0] # Fallback para a primeira coluna
+            
+            # Extrai os números brutos da planilha como lista
+            codigos_brutos = df[coluna_codigo].dropna().astype(str).str.extract(r'(\d+)')[0].dropna().tolist()
+            total_lidos = len(codigos_brutos)
+            
+            if total_lidos == 0:
+                messagebox.showwarning("Aviso", "Nenhum código numérico encontrado na planilha.")
+                return
+
+            # Auditoria e Duplicatas
+            from collections import Counter
+            contagem = Counter(codigos_brutos)
+            
+            # Filtra os códigos que apareceram mais de uma vez
+            duplicados = [codigo for codigo, qtd in contagem.items() if qtd > 1]
+            
+            # Transforma em 'set' para remover duplicatas e depois volta para lista para o INSERT
+            codigos_unicos = list(set(codigos_brutos))
+            total_unicos = len(codigos_unicos)
+            
+            # Prepara a tupla para o executemany
+            codigos_para_inserir = [(int(c),) for c in codigos_unicos]
+
+            # Conexão e Inserção
+            with self.obter_conexao() as conn:
+                cursor = conn.cursor()
+                cursor.execute("TRUNCATE TABLE CDS_FLASHTOOLS_APP.CODIGO_SIPPES")
+                cursor.executemany("INSERT INTO CDS_FLASHTOOLS_APP.CODIGO_SIPPES (CODIGO) VALUES (:1)", codigos_para_inserir)
+                conn.commit()
+                
+            # Chama a nova tela de resumo com opção de copiar
+            self.mostrar_resumo_importacao(total_lidos, total_unicos, duplicados)
+            
+        except Exception as e:
+            messagebox.showerror("Erro na Importação", str(e))
+
+    def mostrar_resumo_importacao(self, total_lidos, total_unicos, duplicados):
+        # Cria uma nova janelinha sobreposta
+        janela = ctk.CTkToplevel(self)
+        janela.title("Resumo da Importação")
+        janela.geometry("450x450")
+        janela.attributes("-topmost", True) # Mantém a janela sempre na frente
+        janela.transient(self) # Foca nela
+        
+        # Textos de cabeçalho
+        msg_header = f"Importação concluída!\n\n• Linhas lidas: {total_lidos}\n• Inseridos: {total_unicos}"
+        ctk.CTkLabel(janela, text=msg_header, font=("Arial", 14, "bold"), justify="left").pack(pady=(15, 5))
+        
+        if duplicados:
+            msg_alerta = f"⚠️ Foram encontrados {len(duplicados)} código(s) duplicado(s):"
+            ctk.CTkLabel(janela, text=msg_alerta, font=("Arial", 12), text_color="#f39c12").pack(pady=5)
+            
+            # Caixa de texto rolável com os duplicados (permite seleção do mouse)
+            txt_dups = ctk.CTkTextbox(janela, height=200)
+            txt_dups.pack(fill="both", expand=True, padx=20, pady=5)
+            
+            # Formata a lista um embaixo do outro e insere na caixa
+            lista_formatada = "\n".join(duplicados)
+            txt_dups.insert("1.0", lista_formatada)
+            txt_dups.configure(state="disabled") # Desabilita digitação, mas permite cópia
+            
+            # Botão de copiar direto
+            def acao_copiar():
+                pyperclip.copy(lista_formatada)
+                messagebox.showinfo("Copiado", "Códigos duplicados copiados!", parent=janela)
+                
+            btn_row = ctk.CTkFrame(janela, fg_color="transparent")
+            btn_row.pack(pady=15)
+            ctk.CTkButton(btn_row, text="Copiar Duplicados", fg_color="#d35400", command=acao_copiar).pack(side="left", padx=10)
+            ctk.CTkButton(btn_row, text="Fechar", fg_color="#555555", command=janela.destroy).pack(side="left", padx=10)
+        else:
+            ctk.CTkButton(janela, text="OK", command=janela.destroy).pack(pady=20)
+
+    def mostrar_resumo_importacao(self, total_lidos, total_unicos, duplicados):
+        
+        janela = ctk.CTkToplevel(self)
+        janela.title("Resumo da Importação")
+        janela.geometry("450x450")
+        janela.attributes("-topmost", True) 
+        janela.transient(self) 
+        
+        
+        msg_header = f"Importação concluída!\n\n• Linhas lidas: {total_lidos}\n• Inseridos: {total_unicos}"
+        ctk.CTkLabel(janela, text=msg_header, font=("Arial", 14, "bold"), justify="left").pack(pady=(15, 5))
+        
+        if duplicados:
+            msg_alerta = f"⚠️ Foram encontrados {len(duplicados)} código(s) duplicado(s):"
+            ctk.CTkLabel(janela, text=msg_alerta, font=("Arial", 12), text_color="#f39c12").pack(pady=5)
+            
+            
+            txt_dups = ctk.CTkTextbox(janela, height=200)
+            txt_dups.pack(fill="both", expand=True, padx=20, pady=5)
+            
+          
+            lista_formatada = "\n".join(duplicados)
+            txt_dups.insert("1.0", lista_formatada)
+            txt_dups.configure(state="disabled") # Desabilita digitação, mas permite cópia
+            
+           
+            def acao_copiar():
+                pyperclip.copy(lista_formatada)
+                messagebox.showinfo("Copiado", "Códigos duplicados copiados!", parent=janela)
+                
+            btn_row = ctk.CTkFrame(janela, fg_color="transparent")
+            btn_row.pack(pady=15)
+            ctk.CTkButton(btn_row, text="Copiar Duplicados", fg_color="#d35400", command=acao_copiar).pack(side="left", padx=10)
+            ctk.CTkButton(btn_row, text="Fechar", fg_color="#555555", command=janela.destroy).pack(side="left", padx=10)
+        else:
+            ctk.CTkButton(janela, text="OK", command=janela.destroy).pack(pady=20)
+
+    def gerar_script_lancamento(self):
+        folha = self.ent_folha_pgto.get().strip()
+        sit_lanc = self.ent_sit_lanc.get().strip()
+        
+        if not folha or not sit_lanc:
+            messagebox.showwarning("Aviso", "Preencha os campos FOLHA_PGTO_CODIGO e TIPO_SIT_LANC_CODIGO.")
+            return
+            
+        
+        query = f"""
+        SELECT 
+        '-- ATUALIZANDO A TABELA SIPPES.LANCAMENTO'||CHR(13)||
+        '-- CAMPO TIPO_SIT_LANC_CODIGO DE '||L.TIPO_SIT_LANC_CODIGO||' PARA {sit_lanc}'||CHR(13)||
+        'UPDATE SIPPES.LANCAMENTO SET TIPO_SIT_LANC_CODIGO = {sit_lanc} WHERE FOLHA_PGTO_CODIGO = {folha} AND CODIGO = '||CODIGO||';'||CHR(13) AS CMDO 
+        FROM SIPPES.LANCAMENTO L
+        WHERE CODIGO IN (SELECT CODIGO FROM CDS_FLASHTOOLS_APP.CODIGO_SIPPES)
+        """
+        self.executar_query_critica(query)
+
+    def gerar_script_lancamento_alt(self):
+        folha = self.ent_folha_pgto.get().strip()
+        sit_lanc = self.ent_sit_lanc.get().strip()
+        status_alt = self.ent_status_alt.get().strip()
+        motivo_cpex = self.ent_motivo_cpex.get().strip()
+        
+        if not all([folha, sit_lanc, status_alt, motivo_cpex]):
+            messagebox.showwarning("Aviso", "Preencha FOLHA_PGTO_CODIGO, TIPO_SIT_LANC_CODIGO, TIPO_STATUS_ALT_CODIGO e MOTIVO_CPEX.")
+            return
+            
+    
+        query = f"""
+        SELECT 
+        '-- ATUALIZANDO A TABELA SIPPES.LANCAMENTO_ALT'||CHR(13)||
+        '-- CAMPO TIPO_STATUS_ALT_CODIGO DE '||L.TIPO_STATUS_ALT_CODIGO||' PARA {status_alt}'||CHR(13)||
+        '-- CAMPO TIPO_SIT_LANC_CODIGO DE '||L.TIPO_SIT_LANC_CODIGO||' PARA {sit_lanc}'||CHR(13)||
+        '-- CAMPO MOTIVO_CPEX DE '||L.MOTIVO_CPEX||' PARA ABAIXO'||CHR(13)||
+        'UPDATE SIPPES.LANCAMENTO_ALT SET TIPO_STATUS_ALT_CODIGO = {status_alt}, TIPO_SIT_LANC_CODIGO = {sit_lanc}, MOTIVO = '||CHR(39)||'O motivo da exclusão está disponível no relatório Lançamentos Excluídos pelo CPEx na ferramenta SINFOPPES (http://sippes.cpex.eb.mil.br/)'||CHR(39)||', MOTIVO_CPEX = '||CHR(39)||'{motivo_cpex}'||CHR(39)||' WHERE FOLHA_PGTO_CODIGO = {folha} AND CODIGO = '||CODIGO||';'||CHR(13) AS CMDO 
+        FROM SIPPES.LANCAMENTO_ALT L
+        WHERE CODIGO IN (SELECT CODIGO FROM CDS_FLASHTOOLS_APP.CODIGO_SIPPES)
+        """
+        self.executar_query_critica(query)
+
+    def executar_query_critica(self, query):
+        self.txt_out_critica.delete("1.0", "end")
+        self.txt_out_critica.insert("end", "-- Consultando banco de dados, aguarde...\n")
+        self.update() # Força a interface a atualizar a mensagem
+        
+        try:
+            with self.obter_conexao() as conn:
+                df = pd.read_sql(query, conn)
+                
+            if df.empty:
+                self.txt_out_critica.delete("1.0", "end")
+                self.txt_out_critica.insert("end", "-- Nenhum registro encontrado com os códigos informados e a folha de pagamento.")
+                return
+                
+            # Concatena todos os comandos gerados
+            comandos = df['CMDO'].tolist()
+            script_final = "\n".join(comandos)
+            
+            self.txt_out_critica.delete("1.0", "end")
+            self.txt_out_critica.insert("end", "-- ==========================================\n")
+            self.txt_out_critica.insert("end", f"-- SCRIPTS GERADOS ({len(comandos)} REGISTROS)\n")
+            self.txt_out_critica.insert("end", "-- ==========================================\n\n")
+            self.txt_out_critica.insert("end", script_final)
+            self.txt_out_critica.insert("end", "\nCOMMIT;\n")
+            
+        except Exception as e:
+            messagebox.showerror("Erro SQL", str(e))
+            self.txt_out_critica.delete("1.0", "end")
+            self.txt_out_critica.insert("end", f"ERRO:\n{str(e)}")
+
+    # Nao mudei nada do teu codigo lucao, chamaaaa!!!
     def setup_aba_main(self):
         self.tab_main.grid_columnconfigure(0, weight=1)
         self.tab_main.grid_columnconfigure(1, weight=1)
@@ -93,8 +371,7 @@ class OracleSeniorApp(ctk.CTk):
         self.txt_out = ctk.CTkTextbox(f3); self.txt_out.pack(fill="both", expand=True, padx=5)
         btn_f3 = ctk.CTkFrame(f3, fg_color="transparent"); btn_f3.pack(fill="x", pady=10)
         ctk.CTkButton(btn_f3, text="Gerar Relatório e SQL", fg_color="darkgreen", command=self.gerar_log_e_sql).pack(side="left", padx=5, expand=True)
-        # --- BOTÃO ALTERADO AQUI ---
-        ctk.CTkButton(btn_f3, text="Copiar", fg_color="#d35400", command=self.copiar_texto).pack(side="left", padx=5)
+        ctk.CTkButton(btn_f3, text="Copiar", fg_color="#d35400", command=lambda: self.copiar_texto(self.txt_out)).pack(side="left", padx=5)
 
     def setup_aba_snippets(self):
         self.tab_snippets.grid_columnconfigure(0, weight=1)
@@ -181,14 +458,16 @@ class OracleSeniorApp(ctk.CTk):
             if termo in nome_col.lower(): widget.pack(fill="x", pady=2)
             else: widget.pack_forget()
 
-    def copiar_texto(self):
-        texto = self.txt_out.get("1.0", "end-1c")
-        if texto.strip(): pyperclip.copy(texto); messagebox.showinfo("Copiado", "Copiado!")
+    # Modificado esse krai pra receber o widget Textbox dinamicamente
+    def copiar_texto(self, widget_textbox):
+        texto = widget_textbox.get("1.0", "end-1c")
+        if texto.strip(): 
+            pyperclip.copy(texto)
+            messagebox.showinfo("Copiado", "Copiado!")
 
     def testar_conexao(self):
         try:
-            dsn = f"{self.ent_host.get()}:{self.ent_port.get()}/{self.ent_service.get()}"
-            with oracledb.connect(user=self.ent_user.get(), password=self.ent_pass.get(), dsn=dsn) as conn:
+            with self.obter_conexao() as conn:
                 messagebox.showinfo("Sucesso", "Conexão OK!")
         except Exception as e: messagebox.showerror("Erro", str(e))
 
@@ -204,12 +483,24 @@ class OracleSeniorApp(ctk.CTk):
         if os.path.exists(self.config_file):
             with open(self.config_file, "r") as f:
                 data = json.load(f)
-                self.ent_user.insert(0, data.get("user", ""))
-                self.ent_host.insert(0, data.get("host", ""))
+                
+                self.ent_user.configure(state="normal")
+                self.ent_user.delete(0, 'end')
+                self.ent_user.insert(0, data.get("user", "CDS_FLASHTOOLS_APP"))
+                self.ent_user.configure(state="readonly")
+                
+                self.ent_host.delete(0, 'end')
+                self.ent_host.insert(0, data.get("host", "exa12-scan1.eb.mil.br")) 
+                
+                self.ent_port.delete(0, 'end')
                 self.ent_port.insert(0, data.get("port", "1521"))
-                self.ent_service.insert(0, data.get("service", ""))
+                
+                self.ent_service.delete(0, 'end')
+                self.ent_service.insert(0, data.get("service", "SIPPES_HOMOL"))
+                
                 path_xml = data.get("xml_path", "")
                 if path_xml:
+                    self.ent_xml_path.delete(0, 'end')
                     self.ent_xml_path.insert(0, path_xml)
                     self.carregar_snippets_xml(path_xml)
 
@@ -226,8 +517,7 @@ class OracleSeniorApp(ctk.CTk):
         query = self.tratar_query_data(query)
         if query.endswith(';'): query = query[:-1]
         try:
-            dsn = f"{self.ent_host.get()}:{self.ent_port.get()}/{self.ent_service.get()}"
-            with oracledb.connect(user=self.ent_user.get(), password=self.ent_pass.get(), dsn=dsn) as conn:
+            with self.obter_conexao() as conn:
                 self.df_atual = pd.read_sql(query, conn)
             for w in self.frame_campos.winfo_children(): w.destroy()
             self.colunas_inputs = {}; self.widgets_colunas = []
